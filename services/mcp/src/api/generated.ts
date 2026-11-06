@@ -63357,6 +63357,7 @@ export namespace Schemas {
     /**
      * * `customerio` - Customer.io
      * * `resend` - Resend
+     * * `postmark` - Postmark
      */
     export type ImportProviderKeyEnum = typeof ImportProviderKeyEnum[keyof typeof ImportProviderKeyEnum];
 
@@ -63364,6 +63365,7 @@ export namespace Schemas {
     export const ImportProviderKeyEnum = {
       Customerio: 'customerio',
       Resend: 'resend',
+      Postmark: 'postmark',
     } as const;
 
     export interface ImportStepOption {
@@ -63379,7 +63381,8 @@ export namespace Schemas {
       /** Provider key to send when starting an import.
        *
        * * `customerio` - Customer.io
-       * * `resend` - Resend */
+       * * `resend` - Resend
+       * * `postmark` - Postmark */
       key: ImportProviderKeyEnum;
       /** Display name of the provider. */
       label: string;
@@ -93589,10 +93592,10 @@ export namespace Schemas {
        * * `America/Chicago` - America/Chicago
        * * `America/Chihuahua` - America/Chihuahua
        * * `America/Ciudad_Juarez` - America/Ciudad_Juarez
+       * * `America/Coyhaique` - America/Coyhaique
        * * `America/Coral_Harbour` - America/Coral_Harbour
        * * `America/Cordoba` - America/Cordoba
        * * `America/Costa_Rica` - America/Costa_Rica
-       * * `America/Coyhaique` - America/Coyhaique
        * * `America/Creston` - America/Creston
        * * `America/Cuiaba` - America/Cuiaba
        * * `America/Curacao` - America/Curacao
@@ -100067,10 +100070,10 @@ export namespace Schemas {
        * * `America/Chicago` - America/Chicago
        * * `America/Chihuahua` - America/Chihuahua
        * * `America/Ciudad_Juarez` - America/Ciudad_Juarez
+       * * `America/Coyhaique` - America/Coyhaique
        * * `America/Coral_Harbour` - America/Coral_Harbour
        * * `America/Cordoba` - America/Cordoba
        * * `America/Costa_Rica` - America/Costa_Rica
-       * * `America/Coyhaique` - America/Coyhaique
        * * `America/Creston` - America/Creston
        * * `America/Cuiaba` - America/Cuiaba
        * * `America/Curacao` - America/Curacao
@@ -100943,10 +100946,10 @@ export namespace Schemas {
        * * `America/Chicago` - America/Chicago
        * * `America/Chihuahua` - America/Chihuahua
        * * `America/Ciudad_Juarez` - America/Ciudad_Juarez
+       * * `America/Coyhaique` - America/Coyhaique
        * * `America/Coral_Harbour` - America/Coral_Harbour
        * * `America/Cordoba` - America/Cordoba
        * * `America/Costa_Rica` - America/Costa_Rica
-       * * `America/Coyhaique` - America/Coyhaique
        * * `America/Creston` - America/Creston
        * * `America/Cuiaba` - America/Cuiaba
        * * `America/Curacao` - America/Curacao
@@ -102627,7 +102630,8 @@ export namespace Schemas {
       /** The provider the run imports from.
        *
        * * `customerio` - Customer.io
-       * * `resend` - Resend */
+       * * `resend` - Resend
+       * * `postmark` - Postmark */
       provider: ImportProviderKeyEnum;
       /** `queued` until the first step starts, `running`, then `completed` when every step completed or `failed` when any step failed.
        *
@@ -118946,7 +118950,8 @@ export namespace Schemas {
       /** The provider to import from.
        *
        * * `customerio` - Customer.io
-       * * `resend` - Resend */
+       * * `resend` - Resend
+       * * `postmark` - Postmark */
       provider: ImportProviderKeyEnum;
       /**
          * Keys of the steps to run, from the `providers` endpoint. They run in the provider's order, whatever order you send.
@@ -118955,7 +118960,7 @@ export namespace Schemas {
          */
       steps: string[];
       /**
-         * The provider's API key. For Customer.io, an App API key: leave it out to reuse the stored key. For Resend, a full access key: PostHog deletes it when the run ends, so send it every time.
+         * The provider's API key. For Customer.io, an App API key: leave it out to reuse the stored key. For Resend, a full access key. For Postmark, a server token or the account token. PostHog deletes a Resend key or Postmark token when the run ends, so send it every time.
          * @maxLength 512
          */
       api_key?: string;
