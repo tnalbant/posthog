@@ -149,14 +149,15 @@ def snapshot_experiment_scope_q(
         raise ValueError(f"unsupported observation prefix {prefix!r}")
     targeting = f"{prefix}scanner_snapshot__experiment_targeting__experiment_id"
     config = f"{prefix}scanner_snapshot__scanner_config__experiment_id"
+    scope = f"{prefix}scanner_snapshot__scope__experiment_id"
     q = Q()
     if unrestricted:
-        # nosemgrep: orm-field-injection (both paths are fixed strings; prefix is allowlisted above)
-        q |= Q(**{f"{targeting}__isnull": True, f"{config}__isnull": True})
+        # nosemgrep: orm-field-injection (all three paths are fixed strings; prefix is allowlisted above)
+        q |= Q(**{f"{targeting}__isnull": True, f"{config}__isnull": True, f"{scope}__isnull": True})
     ids = list(experiment_ids)
     if ids:
-        # nosemgrep: orm-field-injection (both paths are fixed strings; prefix is allowlisted above)
-        q |= Q(**{f"{targeting}__in": ids}) | Q(**{f"{config}__in": ids})
+        # nosemgrep: orm-field-injection (all three paths are fixed strings; prefix is allowlisted above)
+        q |= Q(**{f"{targeting}__in": ids}) | Q(**{f"{config}__in": ids}) | Q(**{f"{scope}__in": ids})
     return q
 
 
@@ -186,7 +187,7 @@ def can_read_observation(access: UserAccessControl, team_id: int, observation: "
     snapshot = observation.scanner_snapshot or {}
     experiment_ids = {
         experiment_id
-        for store in ("experiment_targeting", "scanner_config")
+        for store in ("experiment_targeting", "scanner_config", "scope")
         if (experiment_id := (snapshot.get(store) or {}).get("experiment_id")) is not None
     }
     return not experiment_ids or bool(accessible_experiment_ids(access, team_id, experiment_ids) & experiment_ids)
