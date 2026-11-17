@@ -1027,6 +1027,9 @@ const visionScannersCreate = (): ToolBase<
         if (params.experiment_targeting !== undefined) {
             body['experiment_targeting'] = params.experiment_targeting
         }
+        if (params.scope !== undefined) {
+            body['scope'] = params.scope
+        }
         if (params.query !== undefined) {
             body['query'] = params.query
         }
@@ -1349,6 +1352,7 @@ const visionScannersList = (): ToolBase<
                 offset: params.offset,
                 order_by: params.order_by,
                 scanner_type: params.scanner_type,
+                scope_kind: params.scope_kind,
                 search: params.search,
                 tags: params.tags,
             },
@@ -1766,6 +1770,9 @@ const visionScannersUpdate = (): ToolBase<ReturnType<typeof VisionScannersUpdate
         }
         if (params.experiment_targeting !== undefined) {
             body['experiment_targeting'] = params.experiment_targeting
+        }
+        if (params.scope !== undefined) {
+            body['scope'] = params.scope
         }
         if (params.query !== undefined) {
             body['query'] = params.query
