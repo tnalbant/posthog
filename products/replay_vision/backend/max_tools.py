@@ -59,6 +59,8 @@ from products.replay_vision.backend.scanning import (
     run_inline_scan,
     scan_existing_scanner,
 )
+from products.replay_vision.backend.scope.flag import scope_api_enabled
+from products.replay_vision.backend.scope.load import experiment_id_of
 from products.replay_vision.backend.search import (
     DEFAULT_SEARCH_LIMIT,
     MAX_SEARCH_LIMIT,
@@ -344,9 +346,11 @@ class CompareReplayVisionVariantsTool(ReplayVisionGatesMixin, MaxTool):
             scanner, "viewer"
         ) or not can_read_targeted_experiment(self.user_access_control, self._team.id, scanner):
             return f"Scanner {scanner_id} not found.", {"error": "forbidden"}
-        if scanner.scanner_type != ScannerType.EXPERIMENT:
+        # On the experiment it watches, not the type it is: a scope puts an experiment on any
+        # answer format, so gating on the legacy type would hide the variants of every new one.
+        if experiment_id_of(scanner) is None:
             return (
-                f"That scanner is a {scanner.scanner_type} scanner. Only experiment scanners have variants.",
+                f"That scanner does not watch an experiment, so it has no variants. It is a {scanner.scanner_type}.",
                 {"error": "wrong_scanner_type"},
             )
 
@@ -1270,6 +1274,17 @@ def _scanner_config_for(
     return config
 
 
+def _experiment_variant_keys(team: Team, experiment_id: int) -> list[str]:
+    """Every variant the experiment defines, for a scope whose writer did not name them.
+
+    A scope names its variants explicitly, so a writer that leaves them out has to fill the list
+    rather than store a scanner that watches nothing.
+    """
+    from products.experiments.backend.facade.replay import resolve_exposure_linkage  # noqa: PLC0415
+
+    return list(resolve_exposure_linkage(team, experiment_id=experiment_id).requested_variants)
+
+
 def _estimate_is_fresh(scanner: ReplayScanner) -> bool:
     return scanner.estimated_at is not None and timezone.now() - scanner.estimated_at < ESTIMATE_STALE_AFTER
 
@@ -1511,6 +1526,18 @@ class CreateReplayVisionScannerTool(ReplayVisionGatesMixin, MaxTool):
         recordings_filters: MaxRecordingUniversalFilters | None,
     ) -> tuple[str, dict[str, Any]]:
         resolved_type = scanner_type if scanner_type in VALID_SCANNER_TYPES else ScannerType.MONITOR
+        # The project decides which shape it takes, because the serializer refuses the other one.
+        # The legacy type becomes a summarizer, so the answer format survives the translation.
+        scope: dict[str, Any] | None = None
+        if experiment_id is not None and scope_api_enabled(self._team, self._user):
+            if resolved_type == ScannerType.EXPERIMENT:
+                resolved_type = ScannerType.SUMMARIZER
+            scope = {
+                "kind": "experiment",
+                "experiment_id": experiment_id,
+                "variants": variants or _experiment_variant_keys(self._team, experiment_id),
+            }
+            experiment_id = None
         # Through the serializer, not ReplayScanner.objects.create: it owns the sampling-rate floor below
         # which a scanner silently never scans, the unique-name race, the estimate refresh, the built-in
         # featured digest, and the lifecycle event. A scanner Max makes should be the same object the UI makes.
@@ -1532,6 +1559,7 @@ class CreateReplayVisionScannerTool(ReplayVisionGatesMixin, MaxTool):
                 "query": _scanner_query_for(recordings_filters),
                 "sampling_rate": sampling_rate,
                 "enabled": enabled,
+                **({"scope": scope} if scope is not None else {}),
             },
             # No HTTP request here, so the surface can't be derived from one. Declared instead, or
             # the creation-flow comparison counts a scanner Max made as one nobody can account for.

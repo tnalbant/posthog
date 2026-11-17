@@ -22,6 +22,7 @@ from products.replay_vision.backend.models.replay_observation import (
 )
 from products.replay_vision.backend.models.replay_scanner import ReplayScanner
 from products.replay_vision.backend.scanner_access import accessible_observations, is_uuid
+from products.replay_vision.backend.scope.load import experiment_id_of, settings_of
 from products.replay_vision.backend.variant_analysis import (
     VariantAnalysisDifference,
     VariantAnalysisLine,
@@ -102,8 +103,7 @@ def experiment_variants_readout(
     # back into this package's importers.
     from products.experiments.backend.facade.replay import experiment_prompt_context, experiment_status  # noqa: PLC0415
 
-    experiment_scope = scanner.experiment_scope() or {}
-    experiment_id = experiment_scope.get("experiment_id")
+    experiment_id = experiment_id_of(scanner)
     context = experiment_prompt_context(scanner.team, experiment_id=experiment_id) if experiment_id else None
     status = experiment_status(scanner.team, experiment_id=experiment_id) if experiment_id else None
 
@@ -132,7 +132,8 @@ def experiment_variants_readout(
 
     # Watched variants first, in the scanner's order, so a variant with no observations yet still shows.
     # A key seen in observations but no longer watched (the selection changed) follows them.
-    configured = experiment_scope.get("variants")
+    settings = settings_of(scanner)
+    configured = settings.variants if settings is not None else None
     watched = list(configured) if configured else [variant.key for variant in context.variants] if context else []
     keys = watched + sorted(key for key in stats if key not in watched)
 

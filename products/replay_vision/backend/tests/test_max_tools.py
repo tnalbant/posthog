@@ -937,6 +937,52 @@ class TestCreateReplayVisionScannerTool(BaseTest):
 
     @pytest.mark.django_db
     @pytest.mark.asyncio
+    async def test_an_experiment_becomes_a_scope_under_the_flag(self):
+        experiment = await sync_to_async(create_experiment)(
+            self.team, "max-exp", launched=True, variants=["control", "test"]
+        )
+
+        with patch("products.replay_vision.backend.scope.flag.posthoganalytics.feature_enabled", return_value=True):
+            _, artifact = await self._tool()._arun_impl(
+                name="scoped-by-max",
+                prompt="Why did they leave?",
+                scanner_type="experiment",
+                experiment_id=experiment.id,
+            )
+
+        assert "error" not in artifact, artifact
+        scanner = await sync_to_async(ReplayScanner.objects.get)(id=artifact["scanner_id"])
+        assert scanner.scanner_type == ScannerType.SUMMARIZER
+        assert scanner.scope is not None
+        assert scanner.scope["experiment_id"] == experiment.id
+        # Filled from the experiment, because a scope that names no variant watches nothing.
+        assert sorted(scanner.scope["variants"]) == ["control", "test"]
+        assert "experiment_id" not in scanner.scanner_config
+
+    @pytest.mark.django_db
+    @pytest.mark.asyncio
+    async def test_without_the_flag_an_experiment_stays_the_legacy_type(self):
+        experiment = await sync_to_async(create_experiment)(
+            self.team, "max-legacy", launched=True, variants=["control"]
+        )
+
+        with patch("products.replay_vision.backend.scope.flag.posthoganalytics.feature_enabled", return_value=False):
+            _, artifact = await self._tool()._arun_impl(
+                name="legacy-by-max",
+                prompt="Why did they leave?",
+                scanner_type="experiment",
+                experiment_id=experiment.id,
+            )
+
+        assert "error" not in artifact, artifact
+        scanner = await sync_to_async(ReplayScanner.objects.get)(id=artifact["scanner_id"])
+        assert scanner.scanner_type == ScannerType.EXPERIMENT
+        assert scanner.scanner_config["experiment_id"] == experiment.id
+        # The dual write still mirrors it into the column; the legacy store stays the source.
+        assert scanner.scope == {"kind": "experiment", "experiment_id": experiment.id}
+
+    @pytest.mark.django_db
+    @pytest.mark.asyncio
     async def test_a_recording_filter_becomes_the_scanners_selection(self):
         recordings_filters = MaxRecordingUniversalFilters.model_validate(
             {
