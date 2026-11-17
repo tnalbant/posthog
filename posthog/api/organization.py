@@ -74,6 +74,7 @@ from posthog.utils import get_safe_cache, safe_cache_set
 from products.access_control.backend.facade.user_access_control import UserAccessControl, visible_teams_for_user
 from products.access_control.backend.models.role import Role
 from products.access_control.backend.presentation.access_control import UserAccessControlSerializerMixin
+from products.access_control.backend.presentation.organization_role_access import require_organization_access_management
 from products.authorization.backend.facade.enums import Action
 from products.legal_documents.backend.facade.api import SIGNED_BAA_ANNOTATION, annotate_signed_baa, has_signed_baa
 
@@ -397,6 +398,13 @@ class OrganizationSerializer(
         ip_restrictions = validated_data.pop("ip_restrictions", None)
         ip_restrictions_enabled = validated_data.pop("ip_restrictions_enabled", None)
         with transaction.atomic():
+            if validated_data.get("default_role") is not None:
+                role = Role.objects.select_for_update(no_key=True).get(
+                    pk=validated_data["default_role"].pk, organization=instance
+                )
+                if role.organization_access_level is not None:
+                    require_organization_access_management(self.context["request"], instance)
+                validated_data["default_role"] = role
             instance = super().update(instance, validated_data, *args, **kwargs)
             if ip_restrictions is not None or ip_restrictions_enabled is not None:
                 defaults: dict[str, Any] = {}
