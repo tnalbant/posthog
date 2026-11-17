@@ -327,6 +327,38 @@ class TestOrganizationRoleAccessCache(NonAtomicBaseTest):
         with self.assertRaises(NotImplementedError):
             authorization.check(resource=resource, action=Action.EDIT, subject=Subject(api_key_id="example-key"))
 
+    @parameterized.expand([("one", 1), ("five", 5)])
+    def test_sdk_organization_lists_resolve_and_revoke_role_grants(self, _name: str, count: int) -> None:
+        self.grant()
+        granted = {str(self.organization.pk)}
+        for index in range(count - 1):
+            organization = Organization.objects.create(name=f"Granted {index}")
+            membership = OrganizationMembership.objects.create(organization=organization, user=self.user)
+            role = Role.objects.create(organization=organization, name="Administrators", organization_access_level=8)
+            RoleMembership.objects.create(role=role, user=self.user, organization_member=membership)
+            granted.add(str(organization.pk))
+        other = Organization.objects.create(name="Other")
+        OrganizationMembership.objects.create(organization=other, user=self.user)
+        foreign_role = Role.objects.create(organization=other, name="Foreign", organization_access_level=8)
+        RoleMembership.objects.create(
+            role=foreign_role, user=self.user, organization_member=self.organization_membership
+        )
+        direct = Organization.objects.create(name="Direct admin")
+        OrganizationMembership.objects.create(organization=direct, user=self.user, level=8)
+        resource = Resource(type=ResourceType.ORGANIZATION)
+        subject = Subject(user_id=self.user.pk)
+
+        with authorization.authorization_session():
+            with self.assertNumQueries(2):
+                result = authorization.list_objects(resource=resource, action=Action.EDIT, subject=subject)
+            assert result.complete and not result.excluded
+            assert result.ids == granted | {str(direct.pk)}
+            assert not authorization.list_objects(resource=resource, action=Action.MANAGE_OWNERS, subject=subject).ids
+            Role.objects.filter(organization_id__in=granted).update(organization_access_level=None)
+            with self.assertNumQueries(2):
+                result = authorization.list_objects(resource=resource, action=Action.EDIT, subject=subject)
+            assert result.ids == {str(direct.pk)}
+
     def test_deployment_does_not_reuse_unannotated_membership_payloads(self) -> None:
         self.grant()
         old_namespace = f"django{django.VERSION[0]}.{django.VERSION[1]}"
